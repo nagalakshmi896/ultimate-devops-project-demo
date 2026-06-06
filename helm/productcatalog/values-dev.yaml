@@ -4,7 +4,7 @@ replicas: 1
 
 image:
   repository: nagalakshmi896/product-catalog
-  tag: "27030335750"
+  tag: "27049468405"
 
 service:
   port: 8080
