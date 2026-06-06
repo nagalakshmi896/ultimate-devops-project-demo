@@ -1,0 +1,10 @@
+namespace: prod
+
+replicas: 1
+
+image:
+  repository: nagalakshmi896/product-catalog
+  tag: prod-latest
+
+service:
+  port: 8080
