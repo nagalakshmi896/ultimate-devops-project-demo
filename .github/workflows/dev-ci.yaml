@@ -1,6 +1,9 @@
-# CI for Product Catalog Service
 
 name: product-catalog-dev-ci
+
+permissions:
+  id-token: write #Without it GitHub cannot generate the OIDC token.
+  contents: write
 
 on:
   pull_request:
@@ -13,7 +16,7 @@ on:
       - closed
 
 env:
-  APP_NAME: product-catalog
+  APP_NAME: productcatalogservice
   APP_PATH: src/product-catalog
   DOCKER_FILE: src/product-catalog/Dockerfile
   HELM_VALUES_FILE: helm/productcatalog/values-dev.yaml
@@ -24,10 +27,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Go 1.22
+      - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: "1.22"
@@ -47,10 +50,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Go 1.22
+      - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: "1.22"
@@ -67,28 +70,33 @@ jobs:
 
     needs:
       - build
-#      - code-quality
+  #    - code-quality
 
     steps:
-      - name: checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+#          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }} 
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}   #arn:aws:iam::123456789012:role/github-actions-ecr-role        
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
-
-      - name: Docker Push
+      - name: Build and Push Image to ECR
         uses: docker/build-push-action@v6
         with:
           context: ${{ env.APP_PATH }}
           file: ${{ env.DOCKER_FILE }}
           push: true
-          tags: "${{ secrets.DOCKER_USERNAME }}/${{ env.APP_NAME }}:${{ github.run_id }}"
+          tags: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.APP_NAME }}:${{ github.run_id }}
 
   updatehelm:
     if: github.event.pull_request.merged == true
@@ -97,16 +105,16 @@ jobs:
     needs: docker
 
     steps:
-      - name: checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Update Helm values file
+      - name: Update Helm Values
         run: |
           sed -i 's|tag: .*|tag: "${{ github.run_id }}"|' "${{ env.HELM_VALUES_FILE }}"
 
-      - name: Commit and push changes
+      - name: Commit and Push Changes
         run: |
           git config --global user.email "nagalakshmi896@gmail.com"
           git config --global user.name "nagalakshmi"
@@ -115,6 +123,6 @@ jobs:
 
           git add "${{ env.HELM_VALUES_FILE }}"
 
-          git commit -m "CI: Update product catalog image tag" || true
+          git commit -m "CI: Update Product Catalog image tag" || true
 
           git push origin HEAD:${{ env.TARGET_BRANCH }}

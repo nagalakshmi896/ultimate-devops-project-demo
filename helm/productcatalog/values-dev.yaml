@@ -3,7 +3,7 @@ namespace: dev
 replicas: 1
 
 image:
-  repository: nagalakshmi896/product-catalog
+  repository: 272594900054.dkr.ecr.us-east-1.amazonaws.com/productcatalogservice
   tag: "27051180352"
 
 service:
